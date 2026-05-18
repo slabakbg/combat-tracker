@@ -1,6 +1,6 @@
 # D&D Combat HP Tracker
 
-A lightweight, single-file, offline-first combat tracker for Dungeons & Dragons.
+A lightweight, single-file, offline-first combat tracker for Dungeons & Dragons & other TTRPGs.
 
 ## Features
 - HP / Temp HP tracking
@@ -11,5 +11,4 @@ A lightweight, single-file, offline-first combat tracker for Dungeons & Dragons.
 - Fully offline
 
 ## Usage
-Open index.html in browser.
-
+Open index.html in browser. (You can rename it, it will work)
