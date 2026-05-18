@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+  <title>D&D HP Tracker</title>
+
+  <style>
+
+    body {
+      background: #1e1e1e;
+      color: white;
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+
+    h1 {
+      margin-bottom: 12px;
+    }
+
+    .top-buttons {
+      margin-bottom: 12px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      padding: 6px 10px;
+      cursor: pointer;
+      background: #333;
+      color: white;
+      border: 1px solid #555;
+      font-size: 13px;
+    }
+
+    button:hover {
+      background: #444;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      table-layout: fixed;
+    }
+
+    th,
+    td {
+      border: 1px solid #444;
+      padding: 6px;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    th {
+      background: #2a2a2a;
+      font-size: 13px;
+    }
+
+    /* COLUMN WIDTHS */
+
+    th:nth-child(1), td:nth-child(1) { width: 70px; }   /* INIT */
+    th:nth-child(2), td:nth-child(2) { width: 220px; }  /* NAME */
+    th:nth-child(3), td:nth-child(3) { width: 110px; }  /* HP */
+
+    th:nth-child(4), td:nth-child(4),
+    th:nth-child(5), td:nth-child(5),
+    th:nth-child(6), td:nth-child(6),
+    th:nth-child(7), td:nth-child(7),
+    th:nth-child(8), td:nth-child(8),
+    th:nth-child(9), td:nth-child(9),
+    th:nth-child(10), td:nth-child(10) {
+      width: 70px;
+    }
+
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 4px;
+      background: #333;
+      color: white;
+      border: 1px solid #555;
+      font-size: 13px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 110px;
+      resize: none;
+      background: #111;
+      color: #ccc;
+      border: 1px solid #555;
+      padding: 8px;
+      box-sizing: border-box;
+      font-family: monospace;
+      font-size: 12px;
+    }
+
+    .log-row {
+      display: none;
+    }
+
+    .small-btn {
+      padding: 4px 6px;
+      font-size: 12px;
+    }
+
+    /* HP COLORS */
+
+    .hp-super { background: #00ff00; }
+    .hp-good  { background: #5b7535; }
+    .hp-mid   { background: #a18b1f; }
+    .hp-low   { background: #a30a0a; }
+
+    .hp-dead {
+      background: #ffffff;
+      color: #000000;
+      border: 2px solid #ffffff;
+    }
+
+    .hp-dead input {
+      color: #000000;
+      font-weight: bold;
+    }
+
+    .temp-active {
+      background: #1a4f7a;
+    }
+
+    .initiative-input {
+      text-align: center;
+      font-weight: bold;
+    }
+
+  </style>
+</head>
+
+<body>
+
+  <h1>D&D HP Tracker</h1>
+
+  <div class="top-buttons">
+
+    <button id="addCharacter">Add Character</button>
+    <button id="sortInit">Sort Turn Order</button>
+    <button id="exportData">Export</button>
+    <button id="importButton">Import</button>
+
+    <input type="file" id="importFile" hidden />
+
+  </div>
+
+  <table>
+
+    <thead>
+      <tr>
+        <th>Init</th>
+        <th>Name</th>
+        <th>HP</th>
+        <th>Max</th>
+        <th>Temp</th>
+        <th>Dmg</th>
+        <th>Heal</th>
+        <th>Apply</th>
+        <th>Log</th>
+        <th>Del</th>
+      </tr>
+    </thead>
+
+    <tbody id="partyTable"></tbody>
+
+  </table>
+
+  <script>
+
+    const table =
+      document.getElementById("partyTable");
+
+    const addBtn =
+      document.getElementById("addCharacter");
+
+    const sortBtn =
+      document.getElementById("sortInit");
+
+    const exportBtn =
+      document.getElementById("exportData");
+
+    const importBtn =
+      document.getElementById("importButton");
+
+    const importFile =
+      document.getElementById("importFile");
+
+    addBtn.addEventListener("click", () => {
+      addCharacter();
+      saveData();
+    });
+
+    sortBtn.addEventListener("click", () => {
+      sortByInitiative();
+    });
+
+    // -------------------------
+    // ADD CHARACTER
+    // -------------------------
+
+    function addCharacter(data = null) {
+
+      const row =
+        document.createElement("tr");
+
+      row.classList.add("character-row");
+
+      row.innerHTML = `
+        <td>
+          <input type="text"
+                 inputmode="decimal"
+                 class="initiative-input"
+                 value="0">
+        </td>
+
+        <td>
+          <input type="text"
+                 class="name-input"
+                 placeholder="Name">
+        </td>
+
+        <td class="hp-cell">
+          <input type="number"
+                 class="current-hp"
+                 value="1">
+        </td>
+
+        <td>
+          <input type="number"
+                 class="max-hp"
+                 value="1">
+        </td>
+
+        <td class="temp-cell">
+          <input type="number"
+                 class="temp-hp"
+                 value="0">
+        </td>
+
+        <td>
+          <input type="number"
+                 class="damage-input"
+                 placeholder="0">
+        </td>
+
+        <td>
+          <input type="number"
+                 class="heal-input"
+                 placeholder="0">
+        </td>
+
+        <td>
+          <button class="apply-btn small-btn">OK</button>
+        </td>
+
+        <td>
+          <button class="log-btn small-btn">Log</button>
+        </td>
+
+        <td>
+          <button class="delete-btn small-btn">✖</button>
+        </td>
+      `;
+
+      table.appendChild(row);
+
+      const logRow =
+        document.createElement("tr");
+
+      logRow.classList.add("log-row");
+
+      logRow.innerHTML = `
+        <td colspan="10">
+          <textarea class="history-log" readonly></textarea>
+        </td>
+      `;
+
+      table.appendChild(logRow);
+
+      // ELEMENTS
+
+      const init =
+        row.querySelector(".initiative-input");
+
+      const name =
+        row.querySelector(".name-input");
+
+      const current =
+        row.querySelector(".current-hp");
+
+      const max =
+        row.querySelector(".max-hp");
+
+      const temp =
+        row.querySelector(".temp-hp");
+
+      const dmg =
+        row.querySelector(".damage-input");
+
+      const heal =
+        row.querySelector(".heal-input");
+
+      const apply =
+        row.querySelector(".apply-btn");
+
+      const logBtn =
+        row.querySelector(".log-btn");
+
+      const del =
+        row.querySelector(".delete-btn");
+
+      const log =
+        logRow.querySelector(".history-log");
+
+      // LOAD
+
+      if (data) {
+
+        init.value = data.initiative ?? 0;
+        name.value = data.name || "";
+        current.value = data.currentHp ?? 20;
+        max.value = data.maxHp ?? 20;
+        temp.value = data.tempHp ?? 0;
+        log.value = (data.history || []).join("\n");
+      }
+
+      // LOG TOGGLE
+
+      logBtn.addEventListener("click", () => {
+        logRow.style.display =
+          logRow.style.display === "table-row"
+            ? "none"
+            : "table-row";
+      });
+
+      // DELETE
+
+      del.addEventListener("click", () => {
+        if (confirm("Delete character?")) {
+          row.remove();
+          logRow.remove();
+          saveData();
+        }
+      });
+
+      // APPLY
+
+      apply.addEventListener("click", () => {
+        applyChanges(row, log);
+      });
+
+      dmg.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") applyChanges(row, log);
+      });
+
+      heal.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") applyChanges(row, log);
+      });
+
+      // LIVE
+
+      current.addEventListener("input", () => {
+        updateColor(row);
+        saveData();
+      });
+
+      max.addEventListener("input", saveData);
+
+      temp.addEventListener("input", () => {
+        let v = parseInt(temp.value) || 0;
+        if (v < 0) v = 0;
+        temp.value = v;
+        updateColor(row);
+        saveData();
+      });
+
+      name.addEventListener("input", saveData);
+
+      updateColor(row);
+    }
+
+    // -------------------------
+    // APPLY
+    // -------------------------
+
+    function applyChanges(row, log) {
+
+      const current = row.querySelector(".current-hp");
+      const max = row.querySelector(".max-hp");
+      const temp = row.querySelector(".temp-hp");
+      const dmg = row.querySelector(".damage-input");
+      const heal = row.querySelector(".heal-input");
+
+      let hp = parseInt(current.value) || 0;
+      const mhp = parseInt(max.value) || 0;
+      let thp = parseInt(temp.value) || 0;
+
+      let d = parseInt(dmg.value) || 0;
+      let h = parseInt(heal.value) || 0;
+
+      if (thp < 0) thp = 0;
+
+      if (d > 0) {
+        const absorbed = Math.min(thp, d);
+        thp -= absorbed;
+        d -= absorbed;
+        hp -= d;
+      }
+
+      if (h > 0) hp += h;
+
+      hp = Math.max(0, Math.min(hp, mhp));
+
+      current.value = hp;
+      temp.value = thp;
+
+      const now =
+        new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit"
+        });
+
+      const entries =
+        log.value ? log.value.split("\n") : [];
+
+      if (d > 0) entries.unshift(`[${now}] -${d}`);
+      if (h > 0) entries.unshift(`[${now}] +${h}`);
+
+      log.value = entries.slice(0, 20).join("\n");
+
+      dmg.value = "";
+      heal.value = "";
+
+      updateColor(row);
+      saveData();
+
+      dmg.focus();
+    }
+
+    // -------------------------
+    // COLOR
+    // -------------------------
+
+    function updateColor(row) {
+
+      const cell =
+        row.querySelector(".hp-cell");
+
+      const hp =
+        parseInt(row.querySelector(".current-hp").value) || 0;
+
+      const max =
+        parseInt(row.querySelector(".max-hp").value) || 1;
+
+      const ratio = hp / max;
+
+      cell.classList.remove(
+        "hp-super",
+        "hp-good",
+        "hp-mid",
+        "hp-low",
+        "hp-dead"
+      );
+
+      if (hp <= 0) {
+        cell.classList.add("hp-dead");
+      } else if (ratio > 0.75) {
+        cell.classList.add("hp-super");
+      } else if (ratio > 0.5) {
+        cell.classList.add("hp-good");
+      } else if (ratio > 0.25) {
+        cell.classList.add("hp-mid");
+      } else {
+        cell.classList.add("hp-low");
+      }
+
+      const tempCell =
+        row.querySelector(".temp-cell");
+
+      const t =
+        parseInt(row.querySelector(".temp-hp").value) || 0;
+
+      tempCell.classList.toggle("temp-active", t > 0);
+    }
+
+    // -------------------------
+    // SORT INITIATIVE
+    // -------------------------
+
+    function sortByInitiative() {
+
+      const rows =
+        Array.from(document.querySelectorAll(".character-row"));
+
+      const pairs = rows.map(r => ({
+        row: r,
+        log: r.nextElementSibling,
+        init: parseFloat(r.querySelector(".initiative-input").value) || 0
+      }));
+
+      pairs.sort((a, b) => b.init - a.init);
+
+      pairs.forEach(p => {
+        table.appendChild(p.row);
+        table.appendChild(p.log);
+      });
+    }
+
+    // -------------------------
+    // SAVE / LOAD
+    // -------------------------
+
+    function saveData() {
+
+      const rows =
+        document.querySelectorAll(".character-row");
+
+      const data = [];
+
+      rows.forEach(row => {
+
+        const logRow = row.nextElementSibling;
+
+        const log = logRow.querySelector(".history-log");
+
+        data.push({
+          initiative: row.querySelector(".initiative-input").value,
+          name: row.querySelector(".name-input").value,
+          currentHp: row.querySelector(".current-hp").value,
+          maxHp: row.querySelector(".max-hp").value,
+          tempHp: row.querySelector(".temp-hp").value,
+          history: log.value ? log.value.split("\n") : []
+        });
+      });
+
+      localStorage.setItem("dnd-hp-tracker", JSON.stringify(data));
+    }
+
+    function loadData() {
+
+      const raw =
+        localStorage.getItem("dnd-hp-tracker");
+
+      if (!raw) {
+        addCharacter();
+        return;
+      }
+
+      JSON.parse(raw).forEach(addCharacter);
+    }
+
+    // -------------------------
+    // EXPORT / IMPORT
+    // -------------------------
+
+    exportBtn.addEventListener("click", () => {
+
+      const data =
+        localStorage.getItem("dnd-hp-tracker");
+
+      const blob =
+        new Blob([data], { type: "application/json" });
+
+      const url =
+        URL.createObjectURL(blob);
+
+      const a =
+        document.createElement("a");
+
+      a.href = url;
+      a.download = "dnd-party.json";
+      a.click();
+
+      URL.revokeObjectURL(url);
+    });
+
+    importBtn.addEventListener("click", () => importFile.click());
+
+    importFile.addEventListener("change", (e) => {
+
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+
+      reader.onload = (ev) => {
+
+        try {
+          localStorage.setItem("dnd-hp-tracker", ev.target.result);
+          location.reload();
+        } catch {
+          alert("Invalid file");
+        }
+      };
+
+      reader.readAsText(file);
+    });
+
+    // -------------------------
+    // START
+    // -------------------------
+
+    loadData();
+
+  </script>
+
+</body>
+</html>
